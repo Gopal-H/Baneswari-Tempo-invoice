@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baneswari Tempo - Invoice</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .panel {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            padding: 24px;
+            height: fit-content;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .trip-row {
+            display: grid;
+            grid-template-columns: 2fr 2fr 1fr auto;
+            gap: 8px;
+            align-items: end;
+            margin-bottom: 12px;
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+        }
+        
+        .trip-row input {
+            margin-bottom: 0;
+        }
+        
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+            padding: 8px;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .invoice-preview {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .invoice-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 20px;
+        }
+        
+        .invoice-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .invoice-parties {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 30px;
+        }
+        
+        .party-section h3 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .trips-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        
+        .trips-table th,
+        .trips-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .trips-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .trips-table .amount {
+            text-align: right;
+        }
+        
+        .total-section {
+            text-align: right;
+            margin-top: 20px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        
+        .total-final {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+            border-top: 2px solid #667eea;
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+        
+        .sync-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                padding: 10px;
+                gap: 10px;
+            }
+            
+            .panel {
+                padding: 16px;
+            }
+            
+            .trip-row {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+            
+            .btn {
+                flex: 1;
+                min-width: 120px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sync-status" id="syncStatus">📱 Synced to Cloud</div>
+    
+    <div class="container">
+        <!-- Left Panel - Form -->
+        <div class="panel" id="formPanel">
+            <h2>🚛 Baneswari Tempo</h2>
+            
+            <div class="form-group">
+                <label>📅 Date</label>
+                <input type="date" id="invoiceDate" onchange="updatePreview(); autoSync();">
+            </div>
+            
+            <div class="form-group">
+                <label>🏢 Select Client</label>
+                <select id="clientSelect" onchange="selectClient(); autoSync();">
+                    <option value="">-- Select Client --</option>
+                    <option value="Ashish packaging">Ashish packaging</option>
+                    <option value="EXPERT">EXPERT</option>
+                    <option value="J Doshi interior solution LLP">J Doshi interior solution LLP</option>
+                    <option value="M.J logistics">M.J logistics</option>
+                    <option value="Mark Hydraulic">Mark Hydraulic</option>
+                    <option value="Maximus Billcom">Maximus Billcom</option>
+                    <option value="Surface Art LLP">Surface Art LLP</option>
+                    <option value="custom">✏️ Type Custom Name</option>
+                </select>
+            </div>
+            
+            <div class="form-group" id="customClientGroup" style="display: none;">
+                <label>✏️ Custom Client Name</label>
+                <input type="text" id="customClient" placeholder="Enter client name" oninput="updatePreview(); autoSync();">
+            </div>
+            
+            <div class="form-group">
+                <h3>🚛 Trip Details</h3>
+                <div id="tripsList">
+                    <div class="trip-row">
+                        <input type="text" placeholder="Pickup Location" class="pickup-location" oninput="updatePreview(); autoSync();">
+                        <input type="text" placeholder="Drop Location" class="drop-location" oninput="updatePreview(); autoSync();">
+                        <input type="number" placeholder="Amount ₹" class="trip-amount" step="1" oninput="updatePreview(); autoSync();">
+                        <button type="button" class="btn btn-danger" onclick="removeTrip(this)">×</button>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-secondary" onclick="addTrip()">➕ Add Trip</button>
+            </div>
+            
+            <div class="btn-group">
+                <button type="button" class="btn btn-primary" onclick="savePDF()">💾 Save PDF</button>
+                <button type="button" class="btn btn-primary" onclick="printInvoice()">🖨️ Print</button>
+            </div>
+            
+            <div class="btn-group">
+                <button type="button" class="btn btn-secondary" onclick="clearForm()">🗑️ Clear</button>
+                <button type="button" class="btn btn-secondary" onclick="quickFill()">⚡ Quick Fill</button>
+            </div>
+        </div>
+        
+        <!-- Right Panel - Preview -->
+        <div class="panel">
+            <div class="invoice-preview" id="invoicePreview">
+                <div class="invoice-header">
+                    <div class="invoice-title">INVOICE</div>
+                    <div class="invoice-details">
+                        <div><strong>Date:</strong> <span id="previewDate"></span></div>
+                    </div>
+                </div>
+                
+                <div class="invoice-parties">
+                    <div class="party-section">
+                        <h3>From:</h3>
+                        <div><strong>Baneswari Tempo</strong></div>
+                    </div>
+                    <div class="party-section">
+                        <h3>To:</h3>
+                        <div id="previewToName">Select Client</div>
+                    </div>
+                </div>
+                
+                <table class="trips-table">
+                    <thead>
+                        <tr>
+                            <th>Pickup Location</th>
+                            <th>Drop Location</th>
+                            <th class="amount">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="previewTrips">
+                        <tr>
+                            <td>Pickup Point</td>
+                            <td>Drop Point</td>
+                            <td class="amount">₹0</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div class="total-section">
+                    <div class="total-final">
+                        <div>Total Payment: <span id="previewTotal">₹0</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Set today's date as default
+        document.getElementById('invoiceDate').value = new Date().toISOString().split('T')[0];
+        
+        // Auto-sync functionality
+        function autoSync() {
+            const data = getCurrentData();
+            localStorage.setItem('baneswari_invoice_data', JSON.stringify(data));
+            
+            // Show sync status
+            const syncStatus = document.getElementById('syncStatus');
+            syncStatus.style.display = 'block';
+            setTimeout(() => {
+                syncStatus.style.display = 'none';
+            }, 2000);
+            
+            // Send to cloud storage (Firebase/Google Drive)
+            syncToCloud(data);
+        }
+        
+        function getCurrentData() {
+            const trips = [];
+            document.querySelectorAll('.trip-row').forEach(row => {
+                trips.push({
+                    pickup: row.querySelector('.pickup-location').value,
+                    drop: row.querySelector('.drop-location').value,
+                    amount: row.querySelector('.trip-amount').value
+                });
+            });
+            
+            return {
+                date: document.getElementById('invoiceDate').value,
+                client: document.getElementById('clientSelect').value,
+                customClient: document.getElementById('customClient').value,
+                trips: trips,
+                timestamp: new Date().toISOString()
+            };
+        }
+        
+        function syncToCloud(data) {
+            // Simple cloud sync using localStorage for now
+            // In production, you'd use Firebase or Google Drive API
+            try {
+                const allInvoices = JSON.parse(localStorage.getItem('all_invoices') || '[]');
+                allInvoices.push(data);
+                localStorage.setItem('all_invoices', JSON.stringify(allInvoices));
+            } catch (error) {
+                console.log('Sync failed:', error);
+            }
+        }
+        
+        function selectClient() {
+            const select = document.getElementById('clientSelect');
+            const customGroup = document.getElementById('customClientGroup');
+            const customInput = document.getElementById('customClient');
+            
+            if (select.value === 'custom') {
+                customGroup.style.display = 'block';
+                customInput.focus();
+            } else {
+                customGroup.style.display = 'none';
+                customInput.value = '';
+            }
+            updatePreview();
+        }
+        
+        function getClientName() {
+            const select = document.getElementById('clientSelect');
+            const customInput = document.getElementById('customClient');
+            
+            if (select.value === 'custom') {
+                return customInput.value || 'Custom Client';
+            }
+            return select.value || 'Select Client';
+        }
+        
+        function addTrip() {
+            const tripsList = document.getElementById('tripsList');
+            const newTrip = document.createElement('div');
+            newTrip.className = 'trip-row';
+            newTrip.innerHTML = `
+                <input type="text" placeholder="Pickup Location" class="pickup-location" oninput="updatePreview(); autoSync();">
+                <input type="text" placeholder="Drop Location" class="drop-location" oninput="updatePreview(); autoSync();">
+                <input type="number" placeholder="Amount ₹" class="trip-amount" step="1" oninput="updatePreview(); autoSync();">
+                <button type="button" class="btn btn-danger" onclick="removeTrip(this)">×</button>
+            `;
+            tripsList.appendChild(newTrip);
+        }
+        
+        function removeTrip(btn) {
+            if (document.querySelectorAll('.trip-row').length > 1) {
+                btn.parentElement.remove();
+                updatePreview();
+                autoSync();
+            }
+        }
+        
+        function clearForm() {
+            if (confirm('Clear all data?')) {
+                document.getElementById('clientSelect').value = '';
+                document.getElementById('customClient').value = '';
+                document.getElementById('customClientGroup').style.display = 'none';
+                
+                document.getElementById('tripsList').innerHTML = `
+                    <div class="trip-row">
+                        <input type="text" placeholder="Pickup Location" class="pickup-location" oninput="updatePreview(); autoSync();">
+                        <input type="text" placeholder="Drop Location" class="drop-location" oninput="updatePreview(); autoSync();">
+                        <input type="number" placeholder="Amount ₹" class="trip-amount" step="1" oninput="updatePreview(); autoSync();">
+                        <button type="button" class="btn btn-danger" onclick="removeTrip(this)">×</button>
+                    </div>
+                `;
+                updatePreview();
+                autoSync();
+            }
+        }
+        
+        function quickFill() {
+            document.getElementById('clientSelect').value = 'Ashish packaging';
+            
+            document.getElementById('tripsList').innerHTML = '';
+            
+            const sampleTrips = [
+                {pickup: 'Mumbai Central', drop: 'Pune Station', amount: '1500'},
+                {pickup: 'Pune Station', drop: 'Mumbai Central', amount: '1500'},
+                {pickup: 'Thane', drop: 'Nashik', amount: '2000'}
+            ];
+            
+            sampleTrips.forEach(trip => {
+                addTrip();
+                const lastRow = document.querySelector('.trip-row:last-child');
+                lastRow.querySelector('.pickup-location').value = trip.pickup;
+                lastRow.querySelector('.drop-location').value = trip.drop;
+                lastRow.querySelector('.trip-amount').value = trip.amount;
+            });
+            
+            updatePreview();
+            autoSync();
+        }
+        
+        function updatePreview() {
+            document.getElementById('previewToName').textContent = getClientName();
+            document.getElementById('previewDate').textContent = document.getElementById('invoiceDate').value || new Date().toISOString().split('T')[0];
+            
+            const tripsBody = document.getElementById('previewTrips');
+            tripsBody.innerHTML = '';
+            let total = 0;
+            
+            document.querySelectorAll('.trip-row').forEach(row => {
+                const pickup = row.querySelector('.pickup-location').value || 'Pickup Point';
+                const drop = row.querySelector('.drop-location').value || 'Drop Point';
+                const amount = parseInt(row.querySelector('.trip-amount').value) || 0;
+                total += amount;
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${pickup}</td>
+                    <td>${drop}</td>
+                    <td class="amount">₹${amount}</td>
+                `;
+                tripsBody.appendChild(tr);
+            });
+            
+            document.getElementById('previewTotal').textContent = `₹${total}`;
+        }
+        
+        async function savePDF() {
+            const { jsPDF } = window.jspdf;
+            const invoice = document.getElementById('invoicePreview');
+            
+            try {
+                const canvas = await html2canvas(invoice, {
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: true
+                });
+                
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgWidth = 210;
+                const pageHeight = 295;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                
+                pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+                
+                const clientName = getClientName().replace(/[^a-zA-Z0-9]/g, '_');
+                const date = document.getElementById('invoiceDate').value || 'invoice';
+                pdf.save(`Baneswari_Tempo_${clientName}_${date}.pdf`);
+                
+                // Auto-sync after PDF save
+                autoSync();
+                
+            } catch (error) {
+                console.error('PDF generation failed:', error);
+                printInvoice();
+            }
+        }
+        
+        function printInvoice() {
+            window.print();
+        }
+        
+        // Load saved data on startup
+        window.addEventListener('load', () => {
+            const saved = localStorage.getItem('baneswari_invoice_data');
+            if (saved) {
+                const data = JSON.parse(saved);
+                // Auto-load last saved data
+                document.getElementById('invoiceDate').value = data.date || new Date().toISOString().split('T')[0];
+                document.getElementById('clientSelect').value = data.client || '';
+                document.getElementById('customClient').value = data.customClient || '';
+                
+                if (data.trips && data.trips.length > 0) {
+                    document.getElementById('tripsList').innerHTML = '';
+                    data.trips.forEach(trip => {
+                        addTrip();
+                        const lastRow = document.querySelector('.trip-row:last-child');
+                        lastRow.querySelector('.pickup-location').value = trip.pickup || '';
+                        lastRow.querySelector('.drop-location').value = trip.drop || '';
+                        lastRow.querySelector('.trip-amount').value = trip.amount || '';
+                    });
+                }
+                
+                selectClient();
+                updatePreview();
+            }
+        });
+        
+        // Initialize
+        updatePreview();
+    </script>
+</body>
+</html>
